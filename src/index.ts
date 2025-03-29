@@ -3,6 +3,7 @@ import to from 'await-to-js'
 import { bot } from './lib/bot'
 import { configDotenv } from 'dotenv'
 import { connectDb } from './db/connect-db'
+import { env } from './service/validate-env'
 import { headerLogs } from './service/header-logs'
 import { setCommands } from './functions/set-commands'
 import { helpListener } from './listeners/help.listener'
@@ -25,9 +26,11 @@ async function main() {
 
   setCommands()
   await Promise.all([
-    notificationsBot.launch(() => {
-      console.log(chalk.bold.greenBright('[Success]'), 'the notifications bot is running')
-    }),
+    env.NOTIFICATIONS_ENABLED
+      ? notificationsBot.launch(() => {
+          console.log(chalk.bold.greenBright('[Success]'), 'the notifications bot is running')
+        })
+      : undefined,
     bot.launch(headerLogs),
   ])
 
