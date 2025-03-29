@@ -6,6 +6,7 @@ import { connectDb } from './db/connect-db'
 import { env } from './service/validate-env'
 import { headerLogs } from './service/header-logs'
 import { setCommands } from './functions/set-commands'
+import { whoamiListener } from './listeners/whoami.listener'
 import { helpListener } from './listeners/help.listener'
 import { startListener } from './listeners/start.listener'
 import { notificationsBot } from './lib/notifications-bot'
@@ -22,7 +23,7 @@ async function main() {
     process.exit(-1)
   }
   console.log(`${chalk.greenBright.bold('[Success]')} connected`)
-  registerBotListeners([startListener, helpListener, decoupleListener])
+  registerBotListeners([startListener, whoamiListener, helpListener, decoupleListener])
 
   setCommands()
   await Promise.all([

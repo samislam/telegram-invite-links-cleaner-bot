@@ -1,5 +1,4 @@
 import { bot } from '../lib/bot'
-import { env } from '../service/validate-env'
 
 export const helpListener = () => {
   return bot.command('help', (ctx) =>
