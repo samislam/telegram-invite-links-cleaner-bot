@@ -19,7 +19,7 @@ export const decoupleListener: TextListener = async (ctx) => {
   const userId = ctx.from.id || null
 
   // matches t.me/... with optional http(s)://, stopping at a word boundary
-  const inviteLinkRegex = /(?:https?:\/\/)?t\.me\/(?:\+[\w\d]+|[\w\d]+|addlist\/[\w\d]+)\b/gi
+  const inviteLinkRegex = /(?:https?:\/\/)?t\.me\/(?:\+[\w\d]+|[\w\d]+|addlist\/[\w\d]+)/gi
   // matches any URL-like string, optional http(s)://
   const anyLinkRegex = /(?:https?:\/\/)?[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]+/gi
 
