@@ -1,5 +1,4 @@
 import { bot } from '../lib/bot'
-import { Markup } from 'telegraf'
 
 export const startListener = () => {
   return bot.start((ctx) => {

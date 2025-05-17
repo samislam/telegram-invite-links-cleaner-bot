@@ -1,80 +1,70 @@
 import { bot } from '../lib/bot'
-import { concat } from 'concat-str'
-import { message } from 'telegraf/filters'
 import { env } from '../service/validate-env'
 import ProcessedLink from '../db/links.schema'
-import { sendNotification } from '../functions/send-notification'
+import type { TextListener } from '../utils/register-text-listeners'
 
-export const decoupleListener = () => {
-  return bot.on(message('text'), async (ctx) => {
-    const chatId = ctx.chat.id
-    const messageId = ctx.message.message_id
-    const messageText = ctx.message.text
+// helper to normalize links (strip protocol + trailing slash)
+const normalizeLink = (link: string) =>
+  link
+    .replace(/^https?:\/\//i, '') // drop http:// or https://
+    .replace(/\/$/, '') // drop trailing slash
+    .replace(/[\s"'”’]+$/g, '') // drop trailing spaces, quotes, curly quotes
 
-    const username = ctx.from.username || null
-    const userId = ctx.from.id || null
+export const decoupleListener: TextListener = async (ctx) => {
+  const chatId = ctx.chat.id
+  const messageId = ctx.message.message_id
+  const messageText = ctx.message.text || ''
 
-    if (env.NOTIFICATIONS_ENABLED && env.OWNER_USER_ID !== userId) {
-      await sendNotification(
-        [
-          '@invitelinkscleaner:',
-          'New incoming message',
-          `sender: ${concat(ctx.from.first_name, ctx.from?.last_name ?? '')}`,
-          `username: ${username}`,
-          `${messageText}`,
-        ].join('\n')
-      )
+  const username = ctx.from.username || null
+  const userId = ctx.from.id || null
+
+  // matches t.me/... with optional http(s)://, stopping at a word boundary
+  const inviteLinkRegex = /(?:https?:\/\/)?t\.me\/(?:\+[\w\d]+|[\w\d]+|addlist\/[\w\d]+)\b/gi
+  // matches any URL-like string, optional http(s)://
+  const anyLinkRegex = /(?:https?:\/\/)?[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]+/gi
+
+  const linkRegex = env.ONLY_JOIN_LINKS ? inviteLinkRegex : anyLinkRegex
+  const found = messageText.match(linkRegex)
+
+  if (found) {
+    const uniqueLinks: string[] = []
+
+    for (const rawLink of found) {
+      const link = normalizeLink(rawLink)
+
+      const isDuplicate = await ProcessedLink.exists({ chatId, link })
+      if (isDuplicate) continue
+
+      uniqueLinks.push(rawLink)
+      // reply with the original formatting
+      const sentMessage = await ctx.reply(rawLink)
+
+      // save the normalized link
+      await new ProcessedLink({
+        chatId,
+        link,
+        username,
+        userId,
+        messageId: sentMessage.message_id,
+      }).save()
     }
 
-    // Regular expression to detect any URL links
-    const inviteLinkRegex = /(t\.me\/(?:\+[\w\d]+|[\w\d]+|addlist\/[\w\d]+))/g
-    const anyLinkRegex = /https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]+/g
-    const linkRegex = env.ONLY_JOIN_LINKS ? inviteLinkRegex : anyLinkRegex
-
-    // Extract invite links from the message
-    const inviteLinks = messageText.match(linkRegex)
-
-    if (inviteLinks) {
-      const uniqueLinks: string[] = []
-
-      for (const link of inviteLinks) {
-        const isDuplicate = await ProcessedLink.exists({ chatId, link })
-
-        if (!isDuplicate) {
-          uniqueLinks.push(link)
-
-          // Send each unique link as a separate message
-          const sentMessage = await ctx.reply(link)
-
-          // Save the sent message info in the database, not the original user message
-          const sentLinkRecord = new ProcessedLink({
-            chatId,
-            link,
-            username,
-            userId,
-            messageId: sentMessage.message_id, // Store the bot's sent messageId
-          })
-          await sentLinkRecord.save()
-        }
-      }
-
-      // Log duplicates (optional)
-      const duplicates = inviteLinks.filter((link) => !uniqueLinks.includes(link))
-      if (duplicates.length > 0) {
-        console.log('Duplicate links detected:', duplicates)
-      }
+    // optional log for duplicates
+    const duplicates = found.filter((l) => !uniqueLinks.includes(l))
+    if (duplicates.length) {
+      console.log('Duplicate links detected:', duplicates)
     }
+  }
 
-    // Delete the user's original message
-    try {
-      await bot.telegram.deleteMessage(chatId, messageId)
-    } catch (error) {
-      console.error(`Failed to delete message ${messageId}:`, error)
-    }
+  // always delete the original
+  try {
+    await bot.telegram.deleteMessage(chatId, messageId)
+  } catch (err) {
+    console.error(`Failed to delete message ${messageId}:`, err)
+  }
 
-    // If no invite links are found, log and do nothing further
-    if (!inviteLinks) {
-      console.log('No invite links found. Deleting message.')
-    }
-  })
+  // if no links at all, you can log it
+  if (!found) {
+    console.log('No invite links found. Deleted message.')
+  }
 }
