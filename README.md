@@ -39,11 +39,3 @@ Now, you might wonder why the bot is accepting any URL and not only telegram inv
 
 Rembmer that after changing any file, if you want to see the results, you have to restart your running service by stopping the process and rerunning the command `bun start`.
 
-# Usage Notifications
-
-You can get notified when someone uses your bot easily, 
-1. create a new bot using the bot father and copy the generated token and your bot username.
-2. paste the values in `.env.local` environment variables `NOTIFICATIONS_BOT_TOKEN` and `NOTIFICATIONS_BOT_USERNAME`.
-3. Get your chat id with your notifications bot, you can start the bot, then send the bot this message (command): `/whoami`, then the bot will reply with your chat id. Then paste your chat id in the `NOTIFICATIONS_BOT_OWNER_CHAT_ID` environment variable.
-4. Find your own telegram id and add it to the `OWNER_USER_ID` environment variable, this value is a number, this value is important because it filters out your own messages from the notifications area.
-5. set the environment variable `NOTIFICATIONS_ENABLED` to `true`.
